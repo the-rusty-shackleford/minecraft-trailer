@@ -1,0 +1,24 @@
+# The gametests and the photo booth, as a mod of their own; never shipped.
+modLoader="javafml"
+loaderVersion="[1,)"
+license="AGPL-3.0-or-later"
+
+[[mods]]
+modId="trailer_gametest"
+version="1.0.0"
+displayName="Trailer gametests"
+description='''The Trailer's gametests and photo booth.'''
+
+[[dependencies.trailer_gametest]]
+    modId="trailer"
+    type="required"
+    versionRange="[1.0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.trailer_gametest]]
+    modId="vanillawheels"
+    type="required"
+    versionRange="[1.2,)"
+    ordering="AFTER"
+    side="BOTH"

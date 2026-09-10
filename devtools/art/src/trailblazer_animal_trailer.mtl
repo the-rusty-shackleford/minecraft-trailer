@@ -1,0 +1,34 @@
+# Trailblazer Animal Trailer materials
+newmtl body
+Kd 0.82 0.84 0.83
+Ka 0.18 0.18 0.18
+newmtl body_dark
+Kd 0.67 0.69 0.68
+Ka 0.15 0.15 0.15
+newmtl body_highlight
+Kd 0.90 0.91 0.90
+Ka 0.20 0.20 0.20
+newmtl metal
+Kd 0.62 0.65 0.67
+Ka 0.15 0.15 0.15
+newmtl metal_dark
+Kd 0.20 0.22 0.25
+Ka 0.08 0.08 0.08
+newmtl glass
+Kd 0.18 0.25 0.29
+Ka 0.02 0.03 0.04
+newmtl vent_dark
+Kd 0.10 0.11 0.12
+Ka 0.03 0.03 0.03
+newmtl reflector
+Kd 0.78 0.16 0.10
+Ka 0.15 0.03 0.02
+newmtl floor
+Kd 0.29 0.26 0.22
+Ka 0.06 0.05 0.04
+newmtl tire
+Kd 0.055 0.06 0.065
+Ka 0.02 0.02 0.02
+newmtl hub
+Kd 0.36 0.38 0.39
+Ka 0.08 0.08 0.08

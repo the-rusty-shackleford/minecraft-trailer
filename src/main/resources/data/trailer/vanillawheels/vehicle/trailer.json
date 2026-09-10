@@ -1,0 +1,128 @@
+{
+  "mesh": "trailer:trailer",
+  "wheel_mesh": "trailer:trailer_wheel",
+  "texture": "trailer:textures/entity/trailer.png",
+  "scale": 1.0,
+  "handedness": "right",
+  "body": {
+    "width": 2.4,
+    "length": 5.2,
+    "height": 2.1,
+    "parts": [
+      {
+        "at": [
+          0,
+          0.25,
+          -0.45
+        ],
+        "width": 2.3,
+        "height": 1.95
+      },
+      {
+        "at": [
+          0,
+          0.15,
+          2.0
+        ],
+        "width": 0.6,
+        "height": 0.4
+      }
+    ]
+  },
+  "seats": [],
+  "wheels": {
+    "radius": 0.4,
+    "positions": [
+      {
+        "forward": -0.77,
+        "right": -1.28
+      },
+      {
+        "forward": -0.77,
+        "right": 1.28
+      }
+    ]
+  },
+  "climb": 2.0,
+  "mass": 1.2,
+  "hitch": {
+    "front": [
+      0,
+      0.21999999999999997,
+      2.6
+    ]
+  },
+  "cargo": {
+    "adults": 4,
+    "young": 8,
+    "slots": [
+      [
+        0.55,
+        0.32,
+        0.6
+      ],
+      [
+        -0.55,
+        0.32,
+        0.6
+      ],
+      [
+        0.55,
+        0.32,
+        -1.4
+      ],
+      [
+        -0.55,
+        0.32,
+        -1.4
+      ]
+    ]
+  },
+  "doors": [
+    {
+      "part": {
+        "group": "rear_door_left"
+      },
+      "hinge": [
+        0.96,
+        1.25,
+        -2.34
+      ],
+      "axis": [
+        0,
+        1,
+        0
+      ],
+      "open": -1.9
+    },
+    {
+      "part": {
+        "group": "rear_door_right"
+      },
+      "hinge": [
+        -0.96,
+        1.25,
+        -2.34
+      ],
+      "axis": [
+        0,
+        1,
+        0
+      ],
+      "open": 1.9
+    }
+  ],
+  "paint": {
+    "part": {
+      "material": [
+        "body",
+        "body_dark",
+        "body_highlight"
+      ]
+    },
+    "default": "white"
+  },
+  "glass": {
+    "material": "glass"
+  }
+}
