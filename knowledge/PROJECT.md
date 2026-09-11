@@ -20,7 +20,9 @@ bundle is committed under `devtools/art/src/`; everything shipped is written by
 No Java in the mod. `gametest` is a mod of its own: four gametests and a photo booth,
 towing behind the Trailblazer taken from Maven Local. The pipeline names parts by
 geometry, turns and drops the mesh, cuts out and turns the wheel, makes the atlas, and
-writes the profile.
+writes the profile. `devtools/art/to_bbmodel.py` turns the same bundle into
+`devtools/art/preview/trailer.bbmodel`, a Blockbench project with every part named, for editing
+by hand (2026-09-10).
 
 ## How it is verified
 
