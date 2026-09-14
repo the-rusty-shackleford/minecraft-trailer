@@ -127,8 +127,9 @@ public final class TrailerGameTests {
     public void theTrailblazerCatchesTheTongueAndTowsItStraightAndRoundATurn(GameTestHelper helper) {
         layFloor(helper);
         Vehicle truck = spawn(helper, TRUCK, 12.5, 7.5, -90.0f);
-        // The truck's hitch is 42 px behind its centre, the trailer's tongue 2.6 blocks ahead of its own.
-        Vehicle trailer = spawn(helper, TRAILER, 12.5 - 42 / 16.0 - 2.6 - 0.3, 7.5, -90.0f);
+        // The trailer sits so its tongue is a third of a block short of the truck's hitch ball, wherever the two profiles put them.
+        Vehicle trailer = spawn(helper, TRAILER, 6.0, 7.5, -90.0f);
+        trailer.setPos(trailer.getX() - (trailer.tongue().x - truck.hitchPoint().x) - 0.3, trailer.getY(), trailer.getZ());
         double x0 = trailer.getX();
         truck.setScriptedInput(GAS);
         helper.runAtTickTime(50, () -> {

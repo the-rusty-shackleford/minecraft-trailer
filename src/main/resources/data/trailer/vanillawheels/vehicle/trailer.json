@@ -1,128 +1,181 @@
 {
   "mesh": "trailer:trailer",
   "wheel_mesh": "trailer:trailer_wheel",
-  "texture": "trailer:textures/entity/trailer.png",
-  "scale": 1.0,
+  "scale": 0.0625,
   "handedness": "right",
   "body": {
-    "width": 2.4,
-    "length": 5.2,
-    "height": 2.1,
+    "width": 2.35,
+    "length": 5.18,
+    "height": 2.79,
     "parts": [
       {
         "at": [
           0,
-          0.25,
-          -0.45
+          0,
+          7.48
         ],
-        "width": 2.3,
-        "height": 1.95
+        "width": 2.35,
+        "height": 2.79
       },
       {
         "at": [
           0,
-          0.15,
-          2.0
+          0,
+          -19.92
         ],
-        "width": 0.6,
-        "height": 0.4
+        "width": 2.35,
+        "height": 2.79
+      },
+      {
+        "at": [
+          0,
+          0,
+          -12.32
+        ],
+        "width": 2.68,
+        "height": 1.03
+      },
+      {
+        "at": [
+          0,
+          7.12,
+          27.2
+        ],
+        "width": 0.44,
+        "height": 0.28
       }
     ]
   },
   "seats": [],
   "wheels": {
-    "radius": 0.4,
+    "radius": 6.4,
     "positions": [
       {
-        "forward": -0.77,
-        "right": -1.28
+        "forward": -12.32,
+        "right": 20.48,
+        "up": 6.4
       },
       {
-        "forward": -0.77,
-        "right": 1.28
+        "forward": -12.32,
+        "right": -20.48,
+        "up": 6.4
       }
     ]
   },
-  "climb": 2.0,
+  "climb": 1.0,
   "mass": 1.2,
   "hitch": {
     "front": [
       0,
-      0.21999999999999997,
-      2.6
+      9.36,
+      41.28
     ]
+  },
+  "headlights": {
+    "at": [
+      [
+        -18.66,
+        7.84,
+        -30.48
+      ],
+      [
+        -18.66,
+        7.84,
+        -8.4
+      ],
+      [
+        -18.66,
+        7.84,
+        17.36
+      ],
+      [
+        18.66,
+        7.84,
+        -30.48
+      ],
+      [
+        18.66,
+        7.84,
+        -8.4
+      ],
+      [
+        18.66,
+        7.84,
+        17.36
+      ]
+    ],
+    "part": {
+      "group": "lenses"
+    },
+    "range": 3
   },
   "cargo": {
     "adults": 4,
     "young": 8,
     "slots": [
       [
-        0.55,
-        0.32,
-        0.6
+        8.8,
+        5.44,
+        11
       ],
       [
-        -0.55,
-        0.32,
-        0.6
+        -8.8,
+        5.44,
+        11
       ],
       [
-        0.55,
-        0.32,
-        -1.4
+        8.8,
+        5.44,
+        -14
       ],
       [
-        -0.55,
-        0.32,
-        -1.4
+        -8.8,
+        5.44,
+        -14
       ]
     ]
   },
   "doors": [
     {
       "part": {
-        "group": "rear_door_left"
+        "group": "door_rear_left"
       },
       "hinge": [
-        0.96,
-        1.25,
-        -2.34
+        18.4,
+        6.08,
+        -38.72
       ],
       "axis": [
         0,
         1,
         0
       ],
-      "open": -1.9
+      "open": -1.5708
     },
     {
       "part": {
-        "group": "rear_door_right"
+        "group": "door_rear_right"
       },
       "hinge": [
-        -0.96,
-        1.25,
-        -2.34
+        -18.4,
+        6.08,
+        -38.72
       ],
       "axis": [
         0,
         1,
         0
       ],
-      "open": 1.9
+      "open": 1.5708
     }
   ],
   "paint": {
     "part": {
-      "material": [
-        "body",
-        "body_dark",
-        "body_highlight"
-      ]
+      "group": "paint"
     },
     "default": "white"
   },
   "glass": {
-    "material": "glass"
+    "group": "glass"
   }
 }

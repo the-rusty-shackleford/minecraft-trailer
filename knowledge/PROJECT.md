@@ -10,19 +10,17 @@ tags: [overview]
 ## What this is
 
 The second vehicle for Vanilla Wheels and the first trailer: a data-only NeoForge 1.21.1
-mod (`lowcodefml`) holding a profile with a tongue, cargo and doors, two OBJ meshes, a
-texture, a recipe and a lang file, with the protocol nested inside. The generator's
-bundle is committed under `devtools/art/src/`; everything shipped is written by
-`devtools/art/build.py`.
+mod (`lowcodefml`) holding a profile with a tongue, cargo, doors and marker lamps, two
+Blockbench meshes, a recipe and a lang file, with the protocol nested inside. The body is
+nfx's Blockbench project `devtools/art/preview/trailer.bbmodel`; everything shipped is
+written from it by `devtools/art/build.py`, his build ported (D-0002).
 
 ## Shape
 
 No Java in the mod. `gametest` is a mod of its own: four gametests and a photo booth,
-towing behind the Trailblazer taken from Maven Local. The pipeline names parts by
-geometry, turns and drops the mesh, cuts out and turns the wheel, makes the atlas, and
-writes the profile. `devtools/art/to_bbmodel.py` turns the same bundle into
-`devtools/art/preview/trailer.bbmodel`, a Blockbench project with every part named, for editing
-by hand (2026-09-10).
+towing behind the Trailblazer taken from Maven Local. The pipeline turns the project half
+a turn into the protocol's frame, cuts the +X mesh wheel out and recentres it, wraps cubes
+into the profile's folders (lenses, glass, paint) and measures the profile off the cubes.
 
 ## How it is verified
 
@@ -32,9 +30,13 @@ the Trailblazer with the doors open and two cows aboard).
 
 ## Decisions
 
-D-0001: parts are named by geometry, not by the bundle's header; the wheel is turned to
-put its axle across the vehicle.
+D-0001 (superseded): parts named by geometry, not by the generator's header. D-0002:
+Trailer 2 is nfx's Blockbench re-creation, under the same ids and recipe.
 
 ## Next
 
-1.0.0 (2026-09-09). Watch the door swing and the cows' slots with Rusty.
+1.0.0 (2026-09-09): the generator's bundle. 2.1.0 (2026-09-13): nfx's rebuild -- doors
+that swing, rail lamps that follow the car, placed hitched from the hand, solid body, the
+lever pose when towed, cargo tilting with the floor -- on Vanilla Wheels 1.5.0 (its
+D-0008); past the 2.0.x he shipped to his instance. Watch the first tow on the box with
+Rusty: the 2.79-tall box can catch on overhangs (shows as the chain breaking, not lag).

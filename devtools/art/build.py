@@ -1,310 +1,272 @@
-"""The Trailer's art, as code: the generated bundle normalized into what Vanilla Wheels reads.
+"""The Trailer's art, as code: nfx's Blockbench project split into what Vanilla Wheels reads, and the profile off it.
 
 Run from the repository root:
 
     uv run --no-project python devtools/art/build.py
 
-Reads the generator's OBJ and MTL from devtools/art/src/ (committed as they
-came, see SOURCES.md there), and writes:
+Reads devtools/art/preview/trailer.bbmodel -- nfx's re-creation of the trailer (2026-09-11), as saved -- and writes:
 
-  src/main/resources/assets/trailer/vanillawheels/mesh/trailer.obj
-  src/main/resources/assets/trailer/vanillawheels/mesh/trailer_wheel.obj
-  src/main/resources/assets/trailer/textures/entity/trailer.png
-  src/main/resources/data/trailer/vanillawheels/vehicle/trailer.json
+  src/main/resources/assets/trailer/vanillawheels/mesh/trailer.bbmodel        the body: everything but the wheels
+  src/main/resources/assets/trailer/vanillawheels/mesh/trailer_wheel.bbmodel  the +X (left) wheel and hub, recentred on the tyre
+  src/main/resources/data/trailer/vanillawheels/vehicle/trailer.json          the profile, its numbers measured off the cubes
   src/main/resources/assets/trailer/lang/en_us.json
 
-What it changes, and why (measured on the bundle):
+nfx's build, ported from his handoff; what it does to the model and why:
 
-- The OBJ declares its 86 group names in a header and never attaches them
-  to faces, so every face reads as the last group. The four parts the
-  protocol must find -- the two wheels with their hubs and the two rear
-  doors -- are named again by their geometry; nothing else needs a name.
-- The bundle's front is -Z; Vanilla Wheels' is +Z. The mesh is turned half
-  a turn about Y (which keeps its handedness), and dropped so the tyres
-  touch y = 0.
-- The wheels are part of the frame; the protocol draws its own at the
-  wheel positions and spins them. The left wheel and hub are cut out into
-  the wheel mesh about their own centre, turned a quarter turn so the axle
-  runs across the vehicle (the bundle's tyres face forward and would roll
-  sideways), and all four wheels leave the frame.
-- There is no texture and no UV: an atlas of swatches is made from the
-  MTL colours (the body ones in grey so a dye colours them, the glass with
-  alpha), and every face is given coordinates inside its swatch.
+- The model is built tongue at -Z. The protocol draws +Z forward (hitch.front, forward, the tow geometry),
+  so the whole thing is turned half a turn about Y -- a proper rotation: faces keep their winding, north
+  and south face UVs swap, east and west too, up and down turn 180, element and group rotations become
+  [-rx, ry, -rz], mesh vertices and pivots go (x, y, z) -> (-x, y, -z). After the turn door_rear_left is
+  at +X, which is the vehicle's left (facing +Z, +X is on your left).
+- The wheels are meshes, not slab stacks; the protocol's reader takes them. The wheel mesh is the +X wheel
+  and hub recentred on the tyre's bounding-box centre; the profile spins its own copies at both axle ends.
+- Cubes are wrapped into the selector groups the profile names: lenses = the thirty amber rail cubes
+  (headlights.part, drawn full-bright when lit; with no engine the profile's lamps are point markers),
+  glass = the four side windows, paint = the light-grey walls, front panel and roof cap -- not the rear
+  doors, since door meshes are drawn untinted.
+- parts (at = a box's bottom centre, square footprint, four at most): two wall-wide boxes tiling the shell
+  (a seatless vehicle's parts are solid, so nobody walks through the body), a fender-wide box at the axle,
+  one on the tongue.
+- The door angles are right-hand rotations about +Y: the +X leaf opens with -pi/2, the -X leaf with +pi/2.
+  Blockbench's animation keyframes carry the opposite sign to element rotations; never copy one in.
 
-Units are blocks, so the profile's scale is 1.
+Units are model units, 1/16 block.
 """
 from __future__ import annotations
 
+import copy
 import json
-import struct
-import sys
-import zlib
-from collections import defaultdict
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-SRC = Path(__file__).resolve().parent / "src"
+SRC = ROOT / "devtools/art/preview/trailer.bbmodel"
 MODID = "trailer"
+VEHICLE = "trailer"
 ASSETS = ROOT / "src/main/resources/assets" / MODID
 DATA = ROOT / "src/main/resources/data" / MODID
+MESH = ASSETS / "vanillawheels/mesh"
+# Blocks the side lamps reach: an unpowered vehicle's lamps are points of luminance twice the range.
+MARKER_RANGE = 3
 
 
-# ---------------------------------------------------------------- PNG writing
+def r4(v):
+    return round(v, 4)
 
-def write_png(path: Path, width: int, height: int, pixels) -> None:
-    raw = b"".join(b"\x00" + b"".join(bytes(p) for p in row) for row in pixels)
 
-    def chunk(kind: bytes, data: bytes) -> bytes:
-        return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data) & 0xFFFFFFFF)
+# ---------------------------------------------------------------- the half turn
 
-    png = (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0))
-           + chunk(b"IDAT", zlib.compress(raw, 9)) + chunk(b"IEND", b""))
+def turn(model):
+    """effects: rotates the whole model half a turn about Y: (x, y, z) -> (-x, y, -z), a proper rotation"""
+    swap = {"north": "south", "south": "north", "east": "west", "west": "east"}
+    for e in model["elements"]:
+        if e.get("type", "cube") == "cube":
+            f, t = e["from"], e["to"]
+            e["from"], e["to"] = [r4(-t[0]), f[1], r4(-t[2])], [r4(-f[0]), t[1], r4(-f[2])]
+            e["faces"] = {swap.get(k, k): v for k, v in e["faces"].items()}
+            for k in ("up", "down"):
+                if k in e["faces"]:
+                    e["faces"][k]["rotation"] = (e["faces"][k].get("rotation", 0) + 180) % 360
+        else:  # a mesh: vertices are relative to the origin
+            e["vertices"] = {k: [r4(-v[0]), v[1], r4(-v[2])] for k, v in e["vertices"].items()}
+        o = e.get("origin", [0, 0, 0])
+        e["origin"] = [r4(-o[0]), o[1], r4(-o[2])]
+        r = e.get("rotation")
+        if r:
+            e["rotation"] = [r4(-r[0]), r[1], r4(-r[2])]  # R_y(180) R(rx, ry, rz) = R(-rx, ry, -rz) R_y(180)
+    for g in model["groups"]:
+        o = g.get("origin", [0, 0, 0])
+        g["origin"] = [r4(-o[0]), o[1], r4(-o[2])]
+        r = g.get("rotation")
+        if r:
+            g["rotation"] = [r4(-r[0]), r[1], r4(-r[2])]
+
+
+# ---------------------------------------------------------------- the outliner
+
+class Project:
+    def __init__(self, model):
+        self.m = model
+        self.gname = {g["uuid"]: g["name"] for g in model["groups"]}
+        self.els = {e["uuid"]: e for e in model["elements"]}
+
+    def strip(self, names):
+        """effects: drops the named top-level folders with everything in them"""
+        drop = set()
+
+        def collect(n):
+            if isinstance(n, str):
+                drop.add(n)
+                return
+            drop.add(n["uuid"])
+            for c in n.get("children", []):
+                collect(c)
+
+        keep = []
+        for n in self.m["outliner"]:
+            if not isinstance(n, str) and self.gname[n["uuid"]] in names:
+                collect(n)
+            else:
+                keep.append(n)
+        self.m["outliner"] = keep
+        self.m["groups"] = [g for g in self.m["groups"] if g["uuid"] not in drop]
+        self.m["elements"] = [e for e in self.m["elements"] if e["uuid"] not in drop]
+
+    def find_group(self, nodes, name):
+        for n in nodes:
+            if isinstance(n, str):
+                continue
+            if self.gname[n["uuid"]] == name:
+                return n
+            r = self.find_group(n.get("children", []), name)
+            if r:
+                return r
+        return None
+
+    def wrap(self, parent_name, new_name, cube_names):
+        """effects: moves the named cubes of folder parent_name into a new child folder new_name"""
+        parent = self.find_group(self.m["outliner"], parent_name)
+        assert parent, parent_name
+        wanted = {u for u in parent["children"] if isinstance(u, str) and self.els[u]["name"] in cube_names}
+        missing = set(cube_names) - {self.els[u]["name"] for u in wanted}
+        assert not missing, (parent_name, sorted(missing))
+        uuid = f"{new_name}-{parent_name}-0000-0000-000000000000"
+        node = {"uuid": uuid, "isOpen": False, "children": [u for u in parent["children"] if isinstance(u, str) and u in wanted]}
+        parent["children"] = [u for u in parent["children"] if not (isinstance(u, str) and u in wanted)] + [node]
+        self.m["groups"].append({"name": new_name, "uuid": uuid, "origin": [0, 0, 0], "rotation": [0, 0, 0], "export": True,
+                                 "visibility": True, "autouv": 0, "selected": False, "shade": True, "mirror_uv": False,
+                                 "isOpen": False, "locked": False, "color": 0})
+        self.gname[uuid] = new_name
+
+    def cube(self, name):
+        r = [e for e in self.m["elements"] if e["name"] == name]
+        assert len(r) == 1, (name, len(r))
+        return r[0]
+
+    def group_origin(self, name):
+        return [g for g in self.m["groups"] if g["name"] == name][0]["origin"]
+
+
+def write_json(path: Path, data, compact=False):
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(png)
+    text = json.dumps(data, separators=(",", ":")) if compact else json.dumps(data, indent=2) + "\n"
+    path.write_text(text, encoding="utf-8")
 
 
-class Noise:
-    def __init__(self, seed: int) -> None:
-        self.state = seed & 0xFFFFFFFF
+def main() -> None:
+    m = json.loads(SRC.read_text(encoding="utf-8"))
+    p = Project(m)
+    assert all(f.get("texture", 0) == 0 for e in m["elements"] for f in e["faces"].values()), "one texture only"
+    m["textures"] = [m["textures"][0]]
+    m["textures"][0]["name"] = f"{VEHICLE}.png"
+    m["textures"][0]["id"] = "0"
+    m.pop("animations", None)  # the protocol swings the doors by the profile
+    turn(m)
+    assert p.cube("tow_coupler")["to"][2] > 0 and p.cube("rear_step")["from"][2] < 0, "the turn failed: the tongue must be at +Z"
 
-    def next(self) -> float:
-        self.state = (1664525 * self.state + 1013904223) & 0xFFFFFFFF
-        return self.state / 0xFFFFFFFF
+    names = [e["name"] for e in m["elements"]]
+    markers = sorted(n for n in names if n.startswith("corr_"))
+    assert len(markers) == 30, len(markers)
+    p.wrap("body", "lenses", markers)
+    p.wrap("body", "glass", [n for n in names if n.startswith("side_window")])
+    paint = ["front_panel", "wall_lower_front", "wall_lower_left", "wall_lower_right", "wall_upper_front",
+             "wall_upper_left_low", "wall_upper_left_high", "wall_upper_left_fwd", "wall_upper_left_mid", "wall_upper_left_aft",
+             "wall_upper_right_low", "wall_upper_right_high", "wall_upper_right_fwd", "wall_upper_right_mid", "wall_upper_right_aft",
+             "roof_cap"]
+    p.wrap("body", "paint", paint)
 
+    # The body: everything but the wheels.
+    body = copy.deepcopy(m)
+    Project(body).strip({"wheels"})
+    body["name"] = VEHICLE
+    body["model_identifier"] = VEHICLE
+    write_json(MESH / f"{VEHICLE}.bbmodel", body, compact=True)
 
-# ---------------------------------------------------------------- the mesh
+    # The wheel: the +X (left) mesh wheel and hub, recentred on the tyre.
+    wheel = copy.deepcopy(m)
+    wp = Project(wheel)
+    wp.strip({wp.gname[x["uuid"]] for x in wheel["outliner"] if not isinstance(x, str)} - {"wheels"})
+    wg = [n for n in wheel["outliner"] if not isinstance(n, str)][0]
 
-class Face:
-    __slots__ = ("material", "group", "corners")
+    def verts(e):
+        return [[e["origin"][i] + v[i] for i in range(3)] for v in e["vertices"].values()]
 
-    def __init__(self, material, group, corners):
-        self.material = material
-        self.group = group
-        self.corners = corners
+    left = [u for u in wg["children"] if isinstance(u, str) and min(pt[0] for pt in verts(wp.els[u])) > 0]
+    assert len(left) == 2, [wp.els[u]["name"] for u in left]
+    wg["children"] = left
+    wheel["elements"] = [wp.els[u] for u in left]
+    wheel["groups"] = [g for g in wheel["groups"] if g["name"] == "wheels"]
+    tyre = [e for e in wheel["elements"] if e["name"].startswith("wheel")][0]
+    pts = verts(tyre)
+    cx = r4((min(q[0] for q in pts) + max(q[0] for q in pts)) / 2)
+    cy = r4((min(q[1] for q in pts) + max(q[1] for q in pts)) / 2)
+    cz = r4((min(q[2] for q in pts) + max(q[2] for q in pts)) / 2)
+    tread = r4(max(q[1] for q in pts) - cy)
+    for e in wheel["elements"]:
+        e["origin"] = [r4(e["origin"][0] - cx), r4(e["origin"][1] - cy), r4(e["origin"][2] - cz)]
+    for g in wheel["groups"]:
+        g["origin"] = [0, 0, 0]
+    wheel["name"] = f"{VEHICLE}_wheel"
+    wheel["model_identifier"] = f"{VEHICLE}_wheel"
+    write_json(MESH / f"{VEHICLE}_wheel.bbmodel", wheel, compact=True)
 
+    # The profile, off the cubes.
+    def box(name):
+        e = p.cube(name)
+        return e["from"], e["to"]
 
-def read_mtl(path: Path):
-    colours = {}
-    name = None
-    for line in path.read_text().splitlines():
-        t = line.split()
-        if not t:
-            continue
-        if t[0] == "newmtl":
-            name = t[1]
-        elif t[0] == "Kd" and name:
-            colours[name] = tuple(int(round(float(c) * 255)) for c in t[1:4])
-    return colours
+    def centre(name, i):
+        f, t = box(name)
+        return r4((f[i] + t[i]) / 2)
 
+    coupler_f, coupler_t = box("tow_coupler")
+    nose = coupler_t[2]
+    tail = box("rear_step")[0][2]
+    roof_top = box("roof_cap")[1][1]
+    roof_w = box("roof_cap")[1][0]
+    fender_w = max(abs(box("fender_lower_1")[0][0]), abs(box("fender_lower_1")[1][0]))
+    fender_top = box("fender_top_-1")[1][1]
+    rail_y = centre(markers[0], 1)
+    rail_x = max(abs(v) for v in (box("corr_l_0.02")[0][0], box("corr_l_0.02")[1][0]))
+    zs = sorted(centre(n, 2) for n in markers if n.startswith("corr_l_"))
+    lamp_z = [zs[1], zs[len(zs) // 2], zs[-2]]
+    floor_top = box("interior_floor_mat")[1][1]
+    wall_w = max(abs(v) for e in m["elements"] if e["name"].startswith("wall_") for v in (e["from"][0], e["to"][0]))
+    front_z = box("front_panel")[1][2]
+    rear_z = box("rear_frame_left")[0][2]
+    hinge_l = p.group_origin("door_rear_left")
+    hinge_r = p.group_origin("door_rear_right")
+    assert hinge_l[0] > 0 > hinge_r[0] and hinge_l[2] < 0
 
-def read_obj(path: Path):
-    """The faces with their materials. The header's group names are not attached to faces (see below)."""
-    v, faces, material = [], [], None
-    for line in path.read_text().splitlines():
-        t = line.split()
-        if not t:
-            continue
-        if t[0] == "v":
-            v.append(tuple(float(c) for c in t[1:4]))
-        elif t[0] == "usemtl":
-            material = t[1]
-        elif t[0] == "f":
-            faces.append(Face(material, "frame", [v[int(c.split("/")[0]) - 1] for c in t[1:]]))
-    return faces
-
-
-def pieces(faces):
-    """Faces grouped into connected pieces (shared vertex coordinates)."""
-    parent = {}
-
-    def find(a):
-        while parent.setdefault(a, a) != a:
-            parent[a] = parent[parent[a]]
-            a = parent[a]
-        return a
-
-    for f in faces:
-        keys = [tuple(round(c, 4) for c in p) for p in f.corners]
-        for k in keys[1:]:
-            ra, rb = find(keys[0]), find(k)
-            if ra != rb:
-                parent[ra] = rb
-    groups = defaultdict(list)
-    for f in faces:
-        groups[find(tuple(round(c, 4) for c in f.corners[0]))].append(f)
-    return list(groups.values())
-
-
-def name_parts(faces):
-    """
-    Puts the group names the protocol selects by on the parts that need
-    them, found by their geometry in the bundle's frame: the tyres (16-gon
-    prisms of 48 faces, material tire), the hubs (36, hub), and the two rear
-    doors (body-material boxes on the rear face, z 2.31..2.38, one each
-    side of the centreline). Everything else stays "frame".
-    """
-    for piece in pieces(faces):
-        mats = {f.material for f in piece}
-        lo, hi = bounds(piece)
-        cx = (lo[0] + hi[0]) / 2
-        side = "-1" if cx < 0 else "1"
-        if mats == {"tire"} and len(piece) == 48:
-            name = "wheel_" + side
-        elif mats == {"hub"} and len(piece) == 36:
-            name = "hub_" + side
-        elif mats == {"body"} and len(piece) == 6 and 2.3 <= lo[2] and hi[2] <= 2.4 and hi[1] - lo[1] > 1.0:
-            name = "rear_door_left" if cx < 0 else "rear_door_right"
-        else:
-            continue
-        for f in piece:
-            f.group = name
-
-
-def turn(p):
-    """Half a turn about Y, and down so the tyres meet the ground."""
-    return (-p[0], p[1] - GROUND, -p[2])
-
-
-GROUND = 0.2
-WHEEL_GROUPS = {"wheel_-1", "hub_-1", "wheel_1", "hub_1"}
-LEFT_WHEEL = {"wheel_-1", "hub_-1"}
-
-
-# ---------------------------------------------------------------- the atlas
-
-CELL = 32
-GRID = 4
-PAINT_GREY = {"body": 240, "body_dark": 197, "body_highlight": 255}
-GLASS_ALPHA = 150
-INSET = 0.06
-
-
-def cells(materials):
-    return {m: (i % GRID, i // GRID) for i, m in enumerate(sorted(materials))}
-
-
-def atlas(materials, colours):
-    noise = Noise(0x7A11)
-    px = [[(0, 0, 0, 0) for _ in range(CELL * GRID)] for _ in range(CELL * GRID)]
-    for m, (cx, cy) in cells(materials).items():
-        base = (PAINT_GREY[m],) * 3 if m in PAINT_GREY else colours.get(m, (200, 0, 200))
-        alpha = GLASS_ALPHA if m == "glass" else 255
-        for y in range(CELL):
-            for x in range(CELL):
-                d = int((noise.next() - 0.5) * 14)
-                px[cy * CELL + y][cx * CELL + x] = (*tuple(max(0, min(255, c + d)) for c in base), alpha)
-    return px
-
-
-# ---------------------------------------------------------------- writing
-
-def face_uvs(n):
-    """Swatch coordinates for a face of n corners: the four corners of the swatch, inset, for a quad; the centre for anything else."""
-    if n == 4:
-        return [(INSET, INSET), (1 - INSET, INSET), (1 - INSET, 1 - INSET), (INSET, 1 - INSET)]
-    return [(0.5, 0.5)] * n
-
-
-def write_obj(path: Path, faces, cell_of, note: str):
-    lines = [f"# {note}", "# generated by devtools/art/build.py; the source bundle is under devtools/art/src"]
-    v_index, vs, vt_index, vts = {}, [], {}, []
-    by_group = defaultdict(list)
-    for f in faces:
-        by_group[(f.group, f.material)].append(f)
-    for (g, m), fs in by_group.items():
-        cx, cy = cell_of[m]
-        for f in fs:
-            for (x, y, z), (fu, fv) in zip(f.corners, face_uvs(len(f.corners))):
-                k = (round(x, 4), round(y, 4), round(z, 4))
-                if k not in v_index:
-                    v_index[k] = len(vs) + 1
-                    vs.append(k)
-                t = (round((cx + fu) / GRID, 5), round(1.0 - (cy + 1 - fv) / GRID, 5))
-                if t not in vt_index:
-                    vt_index[t] = len(vts) + 1
-                    vts.append(t)
-    for x, y, z in vs:
-        lines.append(f"v {x:.4f} {y:.4f} {z:.4f}")
-    for u, w in vts:
-        lines.append(f"vt {u:.5f} {w:.5f}")
-    for (g, m), fs in by_group.items():
-        cx, cy = cell_of[m]
-        lines.append(f"g {g}")
-        lines.append(f"usemtl {m}")
-        for f in fs:
-            ref = []
-            for (x, y, z), (fu, fv) in zip(f.corners, face_uvs(len(f.corners))):
-                vi = v_index[(round(x, 4), round(y, 4), round(z, 4))]
-                ti = vt_index[(round((cx + fu) / GRID, 5), round(1.0 - (cy + 1 - fv) / GRID, 5))]
-                ref.append(f"{vi}/{ti}")
-            lines.append("f " + " ".join(ref))
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-
-
-def write_json(path: Path, data) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
-
-
-def bounds(faces):
-    pts = [p for f in faces for p in f.corners]
-    return tuple(min(p[k] for p in pts) for k in range(3)), tuple(max(p[k] for p in pts) for k in range(3))
-
-
-# ---------------------------------------------------------------- the profile
-
-def profile(wheel_centre, wheel_radius):
-    return {
-        "mesh": "trailer:trailer",
-        "wheel_mesh": "trailer:trailer_wheel",
-        "texture": "trailer:textures/entity/trailer.png",
-        "scale": 1.0,
+    profile = {
+        "mesh": f"{MODID}:{VEHICLE}",
+        "wheel_mesh": f"{MODID}:{VEHICLE}_wheel",
+        "scale": 0.0625,
         "handedness": "right",
-        "body": {"width": 2.4, "length": 5.2, "height": 2.1,
-                 "parts": [{"at": [0, 0.25, -0.45], "width": 2.3, "height": 1.95}, {"at": [0, 0.15, 2.0], "width": 0.6, "height": 0.4}]},
+        "body": {"width": round(2 * max(roof_w, wall_w) / 16, 2), "length": round((nose - tail) / 16, 2), "height": round(roof_top / 16, 2),
+                 "parts": [{"at": [0, 0, r4(front_z - wall_w)], "width": round(2 * wall_w / 16, 2), "height": round(roof_top / 16, 2)},
+                           {"at": [0, 0, r4(rear_z + wall_w)], "width": round(2 * wall_w / 16, 2), "height": round(roof_top / 16, 2)},
+                           {"at": [0, 0, cz], "width": round(2 * fender_w / 16, 2), "height": round(fender_top / 16, 2)},
+                           {"at": [0, coupler_f[1], r4((coupler_f[2] + box("tow_tongue_left")[0][2]) / 2)],
+                            "width": round(2 * coupler_t[0] / 16, 2), "height": round((coupler_t[1] - coupler_f[1]) / 16, 2)}]},
         "seats": [],
-        "wheels": {"radius": round(wheel_radius, 3),
-                   "positions": [{"forward": round(wheel_centre[2], 3), "right": -round(abs(wheel_centre[0]), 3)},
-                                 {"forward": round(wheel_centre[2], 3), "right": round(abs(wheel_centre[0]), 3)}]},
-        "climb": 2.0,
+        "wheels": {"radius": tread, "positions": [{"forward": cz, "right": cx, "up": cy}, {"forward": cz, "right": -cx, "up": cy}]},
+        "climb": 1.0,
         "mass": 1.2,
-        "hitch": {"front": [0, 0.42 - GROUND, 2.6]},
-        "cargo": {"adults": 4, "young": 8, "slots": [[0.55, 0.32, 0.6], [-0.55, 0.32, 0.6], [0.55, 0.32, -1.4], [-0.55, 0.32, -1.4]]},
-        # The doors are hinged on the body's rear corners and swing out and back, about two thirds of a turn.
-        "doors": [{"part": {"group": "rear_door_left"}, "hinge": [0.96, 1.25, -2.34], "axis": [0, 1, 0], "open": -1.9},
-                  {"part": {"group": "rear_door_right"}, "hinge": [-0.96, 1.25, -2.34], "axis": [0, 1, 0], "open": 1.9}],
-        "paint": {"part": {"material": ["body", "body_dark", "body_highlight"]}, "default": "white"},
-        "glass": {"material": "glass"},
+        "hitch": {"front": [0, centre("tow_coupler", 1), nose]},
+        "headlights": {"at": [[x, rail_y, z] for x in (-(rail_x + 0.5), rail_x + 0.5) for z in lamp_z],
+                       "part": {"group": "lenses"}, "range": MARKER_RANGE},
+        "cargo": {"adults": 4, "young": 8,
+                  "slots": [[8.8, floor_top, 11], [-8.8, floor_top, 11], [8.8, floor_top, -14], [-8.8, floor_top, -14]]},
+        "doors": [{"part": {"group": "door_rear_left"}, "hinge": hinge_l, "axis": [0, 1, 0], "open": -1.5708},
+                  {"part": {"group": "door_rear_right"}, "hinge": hinge_r, "axis": [0, 1, 0], "open": 1.5708}],
+        "paint": {"part": {"group": "paint"}, "default": "white"},
+        "glass": {"group": "glass"},
     }
-
-
-def main(argv) -> None:
-    colours = read_mtl(SRC / "trailblazer_animal_trailer.mtl")
-    faces = read_obj(SRC / "trailblazer_animal_trailer.obj")
-    name_parts(faces)
-    for f in faces:
-        f.corners = [turn(p) for p in f.corners]
-    wheel = [f for f in faces if f.group in LEFT_WHEEL]
-    frame = [f for f in faces if f.group not in WHEEL_GROUPS]
-    lo, hi = bounds([f for f in wheel if f.group == "wheel_-1"])
-    centre = tuple((lo[k] + hi[k]) / 2 for k in range(3))
-    radius = (hi[1] - lo[1]) / 2
-    for f in wheel:
-        # About its own centre, then a quarter turn about Y: the bundle's tyre is a disc facing
-        # forward (its axle along Z), and a wheel's axle runs across the vehicle, along X.
-        f.corners = [(p[2] - centre[2], p[1] - centre[1], -(p[0] - centre[0])) for p in f.corners]
-    materials = sorted(set(colours) | {f.material for f in faces})
-    cell_of = cells(materials)
-    write_obj(ASSETS / "vanillawheels/mesh/trailer.obj", frame, cell_of, "The Trailer, blocks, +Z forward, right-handed")
-    write_obj(ASSETS / "vanillawheels/mesh/trailer_wheel.obj", wheel, cell_of, "The Trailer's wheel, blocks, axle along X")
-    write_png(ASSETS / "textures/entity/trailer.png", CELL * GRID, CELL * GRID, atlas(materials, colours))
-    write_json(DATA / "vanillawheels/vehicle/trailer.json", profile(centre, radius))
+    write_json(DATA / "vanillawheels/vehicle" / f"{VEHICLE}.json", profile)
     write_json(ASSETS / "lang/en_us.json", {"vehicle.trailer.trailer": "Trailer"})
-    flo, fhi = bounds(frame)
-    print(f"wrote the trailer ({len(frame)} faces, x {flo[0]:.2f}..{fhi[0]:.2f} y {flo[1]:.2f}..{fhi[1]:.2f} z {flo[2]:.2f}..{fhi[2]:.2f}),"
-          f" the wheel ({len(wheel)} faces, centre {tuple(round(c, 3) for c in centre)}, radius {radius:.3f}), {len(materials)} swatches")
+    print(f"body {len(body['elements'])} elements; wheel at ({cx}, {cy}, {cz}) radius {tread}; "
+          f"{profile['body']['width']} wide {profile['body']['length']} long {profile['body']['height']} high; coupler {profile['hitch']['front']}")
 
 
 if __name__ == "__main__":
-    main(sys.argv)
+    main()

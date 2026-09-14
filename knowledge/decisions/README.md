@@ -13,3 +13,4 @@ tags: [index]
 | Id | Topic |
 |----|-------|
 | D-0001 | Parts named by geometry, not the header; the wheel turned to put its axle across |
+| D-0002 | Trailer 2 is nfx's Blockbench re-creation, under the same ids (supersedes D-0001) |
