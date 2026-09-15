@@ -21,7 +21,8 @@ nfx's build, ported from his handoff; what it does to the model and why:
 - The wheels are meshes, not slab stacks; the protocol's reader takes them. The wheel mesh is the +X wheel
   and hub recentred on the tyre's bounding-box centre; the profile spins its own copies at both axle ends.
 - Cubes are wrapped into the selector groups the profile names: lenses = the thirty amber rail cubes
-  (headlights.part, drawn full-bright when lit; with no engine the profile's lamps are point markers),
+  and the four red front lamps and rear reflectors (headlights.part, drawn full-bright when the
+  tower's lights are on; with no engine the profile's lamps are point markers),
   glass = the four side windows, paint = the light-grey walls, front panel and roof cap -- not the rear
   doors, since door meshes are drawn untinted.
 - parts (at = a box's bottom centre, square footprint, four at most): two wall-wide boxes tiling the shell
@@ -166,7 +167,14 @@ def main() -> None:
     names = [e["name"] for e in m["elements"]]
     markers = sorted(n for n in names if n.startswith("corr_"))
     assert len(markers) == 30, len(markers)
-    p.wrap("body", "lenses", markers)
+    # The lamps that glow with the tower's lights: the thirty amber rail markers, the two red
+    # front lamps and the two red rear reflectors (Rusty: "the little yellow siding lights and
+    # the red lights on the front and rear of the trailer").
+    p.wrap("body", "lenses", markers + ["front_lamp_left", "front_lamp_right"])
+    # The rear reflectors ride on the doors, so their lens folders sit inside the door folders: the
+    # selector matches a group by any component of its path, and a door draws its own lenses.
+    p.wrap("door_rear_left", "lenses", ["rear_reflector_left"])
+    p.wrap("door_rear_right", "lenses", ["rear_reflector_right"])
     p.wrap("body", "glass", [n for n in names if n.startswith("side_window")])
     paint = ["front_panel", "wall_lower_front", "wall_lower_left", "wall_lower_right", "wall_upper_front",
              "wall_upper_left_low", "wall_upper_left_high", "wall_upper_left_fwd", "wall_upper_left_mid", "wall_upper_left_aft",
@@ -218,6 +226,22 @@ def main() -> None:
         f, t = box(name)
         return r4((f[i] + t[i]) / 2)
 
+    def group_box(name):
+        """effects: returns the bounds (from, to) of every cube in folder name, its subfolders included"""
+        uuids = []
+        def gather(node):
+            for c in node.get("children", []):
+                if isinstance(c, str):
+                    uuids.append(c)
+                else:
+                    gather(c)
+        gather(p.find_group(m["outliner"], name))
+        cubes = [p.els[u] for u in uuids]
+        assert cubes, name
+        lo = [r4(min(c["from"][i] for c in cubes)) for i in range(3)]
+        hi = [r4(max(c["to"][i] for c in cubes)) for i in range(3)]
+        return lo, hi
+
     coupler_f, coupler_t = box("tow_coupler")
     nose = coupler_t[2]
     tail = box("rear_step")[0][2]
@@ -257,8 +281,11 @@ def main() -> None:
                        "part": {"group": "lenses"}, "range": MARKER_RANGE},
         "cargo": {"adults": 4, "young": 8,
                   "slots": [[8.8, floor_top, 11], [-8.8, floor_top, 11], [8.8, floor_top, -14], [-8.8, floor_top, -14]]},
-        "doors": [{"part": {"group": "door_rear_left"}, "hinge": hinge_l, "axis": [0, 1, 0], "open": -1.5708},
-                  {"part": {"group": "door_rear_right"}, "hinge": hinge_r, "axis": [0, 1, 0], "open": 1.5708}],
+        # Each door's box, shut: a crouching click anywhere on it toggles the doors.
+        "doors": [{"part": {"group": "door_rear_left"}, "hinge": hinge_l, "axis": [0, 1, 0], "open": -1.5708,
+                   "from": group_box("door_rear_left")[0], "to": group_box("door_rear_left")[1]},
+                  {"part": {"group": "door_rear_right"}, "hinge": hinge_r, "axis": [0, 1, 0], "open": 1.5708,
+                   "from": group_box("door_rear_right")[0], "to": group_box("door_rear_right")[1]}],
         "paint": {"part": {"group": "paint"}, "default": "white"},
         "glass": {"group": "glass"},
     }

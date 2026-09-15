@@ -111,7 +111,7 @@ dependencies {
     jarJar(implementation("com.chunkworks.vanillawheels:vanillawheels")) {
         version {
             strictly "[1.5,2.0)"
-            prefer "1.5.0"
+            prefer "1.6.0"
         }
     }
 

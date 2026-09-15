@@ -21,6 +21,7 @@ import com.chunkworks.vanillawheels.ModContent;
 import com.chunkworks.vanillawheels.Vehicle;
 import com.chunkworks.vanillawheels.api.VanillaWheels;
 import com.chunkworks.vanillawheels.api.VehicleProfile;
+import com.chunkworks.vanillawheels.domain.Vec;
 import com.chunkworks.vanillawheels.domain.Input;
 import com.chunkworks.vanillawheels.domain.Tow;
 import java.util.ArrayList;
@@ -178,6 +179,42 @@ public final class TrailerGameTests {
         helper.assertTrue(trailer.interact(p, InteractionHand.MAIN_HAND).consumesAction(), "the lead click was taken again");
         helper.assertValueEqual(trailer.cargo().young(), 1, "a calf aboard");
         helper.assertTrue(Math.abs(trailer.cargo().fraction() - 0.125) < 1e-9, "at an eighth of the room: " + trailer.cargo().fraction());
+        helper.succeed();
+    }
+
+    @GameTest(template = "runway", timeoutTicks = 60)
+    public void aCrouchClickAnywhereOnADoorTogglesItAndOneOnTheRoofDoesNot(GameTestHelper helper) {
+        layFloor(helper);
+        Vehicle trailer = spawn(helper, TRAILER, 20.5, 7.5, -90.0f);
+        VehicleProfile p = trailer.profile();
+        VehicleProfile.Door left = p.doors().get(0);
+        // The door's top inner corner: nearly two blocks from the hinge, out of the hinge's reach
+        // (Rusty: "should work anywhere on the door, not just the hinges"). Clicked from a block
+        // behind the door, in the world's frame relative to the body.
+        Vec from = left.from().orElseThrow(), to = left.to().orElseThrow();
+        Vec corner = new Vec(Math.abs(from.x()) < Math.abs(to.x()) ? from.x() + 1 : to.x() - 1, to.y() - 1, from.z());
+        Vec3 hinge = trailer.rotate(p.localBlocks(left.hinge()));
+        Vec3 onDoor = trailer.rotate(p.localBlocks(corner));
+        helper.assertTrue(onDoor.distanceTo(hinge) > 1.6, "the corner is out of the hinge's reach: " + onDoor.distanceTo(hinge));
+        Player player = helper.makeMockPlayer(GameType.SURVIVAL);
+        player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+        player.setShiftKeyDown(true);
+        Vec3 behind = trailer.position().add(onDoor).add(trailer.rotate(new Vec(0, 0, -1)));
+        player.setPos(behind.x, behind.y - player.getEyeHeight(), behind.z);
+        helper.assertTrue(!trailer.doorsOpen(), "the doors start shut");
+        helper.assertTrue(trailer.interactAt(player, onDoor, InteractionHand.MAIN_HAND).consumesAction(), "the click on the door's corner is taken");
+        helper.assertTrue(trailer.doorsOpen(), "and opens the doors");
+        // The roof over the doors, a block and a half up: not a door.
+        Vec3 onRoof = trailer.rotate(p.localBlocks(new Vec(0, p.body().height() / p.scale() + 8, from.z())));
+        helper.assertTrue(!trailer.interactAt(player, onRoof, InteractionHand.MAIN_HAND).consumesAction(), "a click over the roof is not a door's");
+        helper.assertTrue(trailer.doorsOpen(), "the doors stay open");
+        // The door swung open stands off the hull: the same corner, turned about the hinge, still toggles.
+        Vec swung = new com.chunkworks.vanillawheels.domain.Rotation(left.hinge(), left.axis(), left.open()).mirrored(p.toLocal()).apply(p.toLocal().apply(corner));
+        Vec3 onSwung = trailer.rotate(swung.times(p.scale()));
+        Vec3 beside = trailer.position().add(onSwung).add(trailer.rotate(new Vec(0, 0, -1)));
+        player.setPos(beside.x, beside.y - player.getEyeHeight(), beside.z);
+        helper.assertTrue(trailer.interactAt(player, onSwung, InteractionHand.MAIN_HAND).consumesAction(), "the click on the swung door is taken");
+        helper.assertTrue(!trailer.doorsOpen(), "and shuts the doors");
         helper.succeed();
     }
 

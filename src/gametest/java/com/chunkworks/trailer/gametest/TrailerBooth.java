@@ -82,6 +82,7 @@ public final class TrailerBooth {
     private static final double Z = 0.5;
     private static final double AHEAD = 9.0;
 
+    private static boolean muted = false;
     private static Phase phase = Phase.TITLE;
     private static int tick = 0;
     private static List<Step> steps;
@@ -94,6 +95,11 @@ public final class TrailerBooth {
             return;
         }
         Minecraft mc = Minecraft.getInstance();
+        if (!muted) {
+            // Silent from the first tick, before the title music: Rusty listens to music while these run.
+            mc.options.getSoundSourceOptionInstance(net.minecraft.sounds.SoundSource.MASTER).set(0.0);
+            muted = true;
+        }
         switch (phase) {
             case TITLE -> {
                 if (mc.screen instanceof TitleScreen && mc.getOverlay() == null) {
@@ -165,6 +171,8 @@ public final class TrailerBooth {
         car = v.getUUID();
     }
 
+    private static int amberDark, redDark;
+
     private static List<Step> plan(Minecraft mc) {
         List<Step> s = new ArrayList<>();
         int t = HOLD;
@@ -222,6 +230,27 @@ public final class TrailerBooth {
             verdict("its doors are swung open", () -> trailer != null && trailer.doorSwing(1.0f) > 0.9f ? null : "swing " + (trailer == null ? null : trailer.doorSwing(1.0f)));
             verdict("with two cows aboard", () -> trailer != null && trailer.animals().size() == 2 ? null : "animals " + (trailer == null ? null : trailer.animals()));
         }));
+        // Night, the truck's lights off, then on: the trailer's amber markers and red lamps glow with them.
+        s.add(new Step(t += 2, () -> onServer(mc, sp -> sp.serverLevel().setDayTime(18000L))));
+        s.add(new Step(t += SETTLE, () -> {
+            amberDark = count(mc, TrailerBooth::amberGlow);
+            redDark = count(mc, TrailerBooth::redGlow);
+            shoot(mc, "booth-hitched-night-off");
+            onServer(mc, sp -> {
+                for (var e : sp.serverLevel().getEntities().getAll()) {
+                    if (e instanceof Vehicle v && v.getUUID().equals(trailerId) && v.tower() != null) {
+                        v.tower().cycleLights();   // off -> on
+                    }
+                }
+            });
+        }));
+        s.add(new Step(t += SETTLE, () -> {
+            int amber = count(mc, TrailerBooth::amberGlow);
+            int red = count(mc, TrailerBooth::redGlow);
+            shoot(mc, "booth-hitched-night-on");
+            verdict("at night the truck's lights light the trailer's amber markers", () -> amber > amberDark + 5 ? null : "amber pixels " + amberDark + " off, " + amber + " on");
+            verdict("and its red front lamps and rear reflectors", () -> red > redDark + 5 ? null : "red pixels " + redDark + " off, " + red + " on");
+        }));
         s.add(new Step(t += 20, () -> {
             LOG.info("booth: PASS all checks ran");
             phase = Phase.DONE;
@@ -245,6 +274,18 @@ public final class TrailerBooth {
     // --- reading the frame -----------------------------------------------
 
     /** The body swatches under white dye: a pale, even grey, which neither grass nor sky is. */
+    /** effects: a bright amber pixel: a lit marker lamp; nothing else in the night frame is */
+    private static boolean amberGlow(int rgb) {
+        int r = (rgb >> 16) & 0xFF, g = (rgb >> 8) & 0xFF, b = rgb & 0xFF;
+        return r > 200 && g > 120 && g < 210 && b < 90;
+    }
+
+    /** effects: a bright red pixel: a lit front lamp or rear reflector */
+    private static boolean redGlow(int rgb) {
+        int r = (rgb >> 16) & 0xFF, g = (rgb >> 8) & 0xFF, b = rgb & 0xFF;
+        return r > 170 && g < 80 && b < 80;
+    }
+
     private static boolean pale(int rgb) {
         int r = rgb >> 16 & 0xFF, g = rgb >> 8 & 0xFF, b = rgb & 0xFF;
         return r > 140 && g > 140 && b > 140 && Math.abs(r - g) < 16 && Math.abs(g - b) < 16;

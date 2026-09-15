@@ -34,6 +34,6 @@ along the line to the hitch.
 [[dependencies.${mod_id}]]
     modId="vanillawheels"
     type="required"
-    versionRange="[1.2.1,2.0)"
+    versionRange="[1.6.0,2.0)"
     ordering="AFTER"
     side="BOTH"
