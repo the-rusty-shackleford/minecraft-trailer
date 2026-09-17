@@ -40,3 +40,11 @@ that swing, rail lamps that follow the car, placed hitched from the hand, solid 
 lever pose when towed, cargo tilting with the floor -- on Vanilla Wheels 1.5.0 (its
 D-0008); past the 2.0.x he shipped to his instance. Watch the first tow on the box with
 Rusty: the 2.79-tall box can catch on overhangs (shows as the chain breaking, not lag).
+
+
+## Release approval - 2026-09-16
+
+Rusty approved the final review, completing their earlier conditional release go.
+Version 2.2.0 is cleared for publication in pack 1.35.0 after the clean
+release build and asset verification. This supersedes the earlier release holds
+and pending presentation/listening review recorded above.
