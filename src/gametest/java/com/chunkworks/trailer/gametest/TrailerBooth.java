@@ -50,6 +50,7 @@ import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
+import net.neoforged.neoforge.client.event.RenderFrameEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -172,14 +173,57 @@ public final class TrailerBooth {
     }
 
     private static int amberDark, redDark;
+    private static boolean sampleFrames;
+    private static long lastFrameNanos;
+    private static final List<Double> frameMillis = new ArrayList<>();
+
+    /** effects: records real frame intervals only during a settled, fixed-camera sample. */
+    @SubscribeEvent
+    public static void onFrame(RenderFrameEvent.Post event) {
+        if (!ACTIVE || !sampleFrames) return;
+        long now = System.nanoTime();
+        if (lastFrameNanos != 0) frameMillis.add((now - lastFrameNanos) / 1_000_000.0);
+        lastFrameNanos = now;
+    }
+
+    /** effects: begins a new fixed-view sample, excluding the preceding transition. */
+    private static void beginSample() {
+        frameMillis.clear();
+        lastFrameNanos = 0;
+        sampleFrames = true;
+    }
+
+    /** effects: logs interval percentiles; this is a local render sample, not server capacity. */
+    private static void endSample(String view) {
+        sampleFrames = false;
+        verdict("frame sample " + view + " completed", () -> frameMillis.size() >= 60 ? null : "frames " + frameMillis.size());
+        if (frameMillis.isEmpty()) return;
+        frameMillis.sort(Double::compare);
+        double mean = frameMillis.stream().mapToDouble(Double::doubleValue).average().orElse(0);
+        LOG.info("booth-performance: {} frames={} meanMs={} p95Ms={} p99Ms={}", view, frameMillis.size(), mean,
+                frameMillis.get((int) ((frameMillis.size() - 1) * .95)),
+                frameMillis.get((int) ((frameMillis.size() - 1) * .99)));
+    }
 
     private static List<Step> plan(Minecraft mc) {
         List<Step> s = new ArrayList<>();
         int t = HOLD;
         s.add(new Step(t, () -> {
-            int body = count(mc, TrailerBooth::pale);
+            int body = countRegion(mc, TrailerBooth::pale, .445, .61, .43, .46);
+            int red = count(mc, TrailerBooth::redPaint);
+            verdict("the stock side is not red", () -> red < 150 ? null : "red pixels " + red);
             shoot(mc, "booth-side");
             verdict("the trailer's side shows its pale body", () -> body > 1500 ? null : "pale pixels " + body);
+        }));
+        s.add(new Step(t += 2, TrailerBooth::beginSample));
+        s.add(new Step(t += 100, () -> endSample("side")));
+        s.add(new Step(t += 2, () -> withCar(mc, v -> v.setPaint(DyeColor.RED))));
+        s.add(new Step(t += SETTLE, () -> {
+            int red = count(mc, TrailerBooth::redPaint);
+            int pale = countRegion(mc, TrailerBooth::pale, .445, .61, .43, .46);
+            verdict("dye replaces the pale body finish", () -> pale < 600 ? null : "pale pixels " + pale);
+            shoot(mc, "booth-side-red");
+            verdict("dye paints the trailer's side red", () -> red > 1500 ? null : "red pixels " + red);
         }));
         // Hitched behind a Trailblazer, doors open, two cows aboard; the camera behind and to the left, up a little.
         s.add(new Step(t += 2, () -> onServer(mc, sp -> {
@@ -230,11 +274,13 @@ public final class TrailerBooth {
             verdict("its doors are swung open", () -> trailer != null && trailer.doorSwing(1.0f) > 0.9f ? null : "swing " + (trailer == null ? null : trailer.doorSwing(1.0f)));
             verdict("with two cows aboard", () -> trailer != null && trailer.animals().size() == 2 ? null : "animals " + (trailer == null ? null : trailer.animals()));
         }));
+        s.add(new Step(t += 2, TrailerBooth::beginSample));
+        s.add(new Step(t += 100, () -> endSample("hitched")));
         // Night, the truck's lights off, then on: the trailer's amber markers and red lamps glow with them.
         s.add(new Step(t += 2, () -> onServer(mc, sp -> sp.serverLevel().setDayTime(18000L))));
         s.add(new Step(t += SETTLE, () -> {
-            amberDark = count(mc, TrailerBooth::amberGlow);
-            redDark = count(mc, TrailerBooth::redGlow);
+            amberDark = countRegion(mc, TrailerBooth::amberGlow, .38, .67, .60, .95);
+            redDark = countRegion(mc, TrailerBooth::redGlow, .38, .67, .60, .95);
             shoot(mc, "booth-hitched-night-off");
             onServer(mc, sp -> {
                 for (var e : sp.serverLevel().getEntities().getAll()) {
@@ -245,12 +291,25 @@ public final class TrailerBooth {
             });
         }));
         s.add(new Step(t += SETTLE, () -> {
-            int amber = count(mc, TrailerBooth::amberGlow);
-            int red = count(mc, TrailerBooth::redGlow);
+            int amber = countRegion(mc, TrailerBooth::amberGlow, .38, .67, .60, .95);
+            int red = countRegion(mc, TrailerBooth::redGlow, .38, .67, .60, .95);
             shoot(mc, "booth-hitched-night-on");
             verdict("at night the truck's lights light the trailer's amber markers", () -> amber > amberDark + 5 ? null : "amber pixels " + amberDark + " off, " + amber + " on");
             verdict("and its red front lamps and rear reflectors", () -> red > redDark + 5 ? null : "red pixels " + redDark + " off, " + red + " on");
         }));
+        // Daylight close-up of the unchanged coupler-to-ball joint, then the front quarter.
+        s.add(new Step(t += 2, () -> onServer(mc, sp -> {
+            ServerLevel level = sp.serverLevel();
+            level.setDayTime(6000L);
+            double y = level.getMinBuildHeight() + 5;
+            sp.teleportTo(level, X + 26, y + 1.3, Z + 5.4, 90.0f, 20.0f);
+        })));
+        s.add(new Step(t += SETTLE, () -> shoot(mc, "booth-hitch-joint")));
+        s.add(new Step(t += 2, () -> onServer(mc, sp -> {
+            double y = sp.serverLevel().getMinBuildHeight() + 5;
+            sp.teleportTo(sp.serverLevel(), X + 27, y + 2.8, Z + 7, 137.0f, 24.0f);
+        })));
+        s.add(new Step(t += SETTLE, () -> shoot(mc, "booth-front-quarter")));
         s.add(new Step(t += 20, () -> {
             LOG.info("booth: PASS all checks ran");
             phase = Phase.DONE;
@@ -273,7 +332,6 @@ public final class TrailerBooth {
 
     // --- reading the frame -----------------------------------------------
 
-    /** The body swatches under white dye: a pale, even grey, which neither grass nor sky is. */
     /** effects: a bright amber pixel: a lit marker lamp; nothing else in the night frame is */
     private static boolean amberGlow(int rgb) {
         int r = (rgb >> 16) & 0xFF, g = (rgb >> 8) & 0xFF, b = rgb & 0xFF;
@@ -286,9 +344,16 @@ public final class TrailerBooth {
         return r > 170 && g < 80 && b < 80;
     }
 
+    /** effects: identifies body paint in shader shade; stock white is the negative control. */
+    private static boolean redPaint(int rgb) {
+        int r = rgb >> 16 & 0xFF, g = rgb >> 8 & 0xFF, b = rgb & 0xFF;
+        return r > 32 && r > g * 1.2 && r > b * 1.1;
+    }
+
+    /** effects: matches neutral or blue-shaded white on the fixed wall sample below the window. */
     private static boolean pale(int rgb) {
         int r = rgb >> 16 & 0xFF, g = rgb >> 8 & 0xFF, b = rgb & 0xFF;
-        return r > 140 && g > 140 && b > 140 && Math.abs(r - g) < 16 && Math.abs(g - b) < 16;
+        return r > 50 && g >= r - 5 && b >= g - 5;
     }
 
     /**
@@ -303,12 +368,17 @@ public final class TrailerBooth {
 
     /** effects: returns how many pixels between the given height fractions, columns 20..80 %, satisfy {@code test} */
     private static int countIn(Minecraft mc, IntPredicate test, double top, double bottom) {
+        return countRegion(mc, test, .2, .8, top, bottom);
+    }
+
+    /** requires: ordered fractions in [0,1]; effects: counts matching pixels inside a fixed booth region. */
+    private static int countRegion(Minecraft mc, IntPredicate test, double left, double right, double top, double bottom) {
         try (NativeImage image = Screenshot.takeScreenshot(mc.getMainRenderTarget())) {
             int n = 0;
             int w = image.getWidth();
             int h = image.getHeight();
             for (int y = (int) (h * top); y < (int) (h * bottom); y++) {
-                for (int x = (int) (w * 0.2); x < (int) (w * 0.8); x++) {
+                for (int x = (int) (w * left); x < (int) (w * right); x++) {
                     int abgr = image.getPixelRGBA(x, y);
                     int rgb = (abgr & 0xFF) << 16 | (abgr >> 8 & 0xFF) << 8 | (abgr >> 16 & 0xFF);
                     if (test.test(rgb)) {

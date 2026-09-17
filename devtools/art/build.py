@@ -1,43 +1,17 @@
-"""The Trailer's art, as code: nfx's Blockbench project split into what Vanilla Wheels reads, and the profile off it.
+"""Import the approved cosmetic Blockbench derivative without changing gameplay.
 
-Run from the repository root:
-
-    uv run --no-project python devtools/art/build.py
-
-Reads devtools/art/preview/trailer.bbmodel -- nfx's re-creation of the trailer (2026-09-11), as saved -- and writes:
-
-  src/main/resources/assets/trailer/vanillawheels/mesh/trailer.bbmodel        the body: everything but the wheels
-  src/main/resources/assets/trailer/vanillawheels/mesh/trailer_wheel.bbmodel  the +X (left) wheel and hub, recentred on the tyre
-  src/main/resources/data/trailer/vanillawheels/vehicle/trailer.json          the profile, its numbers measured off the cubes
-  src/main/resources/assets/trailer/lang/en_us.json
-
-nfx's build, ported from his handoff; what it does to the model and why:
-
-- The model is built tongue at -Z. The protocol draws +Z forward (hitch.front, forward, the tow geometry),
-  so the whole thing is turned half a turn about Y -- a proper rotation: faces keep their winding, north
-  and south face UVs swap, east and west too, up and down turn 180, element and group rotations become
-  [-rx, ry, -rz], mesh vertices and pivots go (x, y, z) -> (-x, y, -z). After the turn door_rear_left is
-  at +X, which is the vehicle's left (facing +Z, +X is on your left).
-- The wheels are meshes, not slab stacks; the protocol's reader takes them. The wheel mesh is the +X wheel
-  and hub recentred on the tyre's bounding-box centre; the profile spins its own copies at both axle ends.
-- Cubes are wrapped into the selector groups the profile names: lenses = the thirty amber rail cubes
-  and the four red front lamps and rear reflectors (headlights.part, drawn full-bright when the
-  tower's lights are on; with no engine the profile's lamps are point markers),
-  glass = the four side windows, paint = the light-grey walls, front panel and roof cap -- not the rear
-  doors, since door meshes are drawn untinted.
-- parts (at = a box's bottom centre, square footprint, four at most): two wall-wide boxes tiling the shell
-  (a seatless vehicle's parts are solid, so nobody walks through the body), a fender-wide box at the axle,
-  one on the tongue.
-- The door angles are right-hand rotations about +Y: the +X leaf opens with -pi/2, the -X leaf with +pi/2.
-  Blockbench's animation keyframes carry the opposite sign to element rotations; never copy one in.
-
-Units are model units, 1/16 block.
+Run with --appearance-only. The released profile and original model are retained in
+reference/. The profile is checked before import and is never regenerated from artwork.
+This preserves nfx's rig and the existing gameplay while allowing deliberate art edits.
+Copyright 2026 Rusty Shackleford and nfx. SPDX-License-Identifier: AGPL-3.0-or-later.
 """
 from __future__ import annotations
 
 import copy
 import json
 from pathlib import Path
+
+from appearance import require_appearance_only
 
 ROOT = Path(__file__).resolve().parents[2]
 SRC = ROOT / "devtools/art/preview/trailer.bbmodel"
@@ -154,6 +128,8 @@ def write_json(path: Path, data, compact=False):
 
 
 def main() -> None:
+    profile_path = DATA / "vanillawheels/vehicle/trailer.json"
+    profile_bytes = require_appearance_only(profile_path, ROOT / "devtools/art/reference/released-profile.json")
     m = json.loads(SRC.read_text(encoding="utf-8"))
     p = Project(m)
     assert all(f.get("texture", 0) == 0 for e in m["elements"] for f in e["faces"].values()), "one texture only"
@@ -162,7 +138,7 @@ def main() -> None:
     m["textures"][0]["id"] = "0"
     m.pop("animations", None)  # the protocol swings the doors by the profile
     turn(m)
-    assert p.cube("tow_coupler")["to"][2] > 0 and p.cube("rear_step")["from"][2] < 0, "the turn failed: the tongue must be at +Z"
+    assert p.cube("tow_coupler")["to"][2] > 0 and p.cube("rear_door_left")["from"][2] < 0, "the turn failed: the tongue must be at +Z"
 
     names = [e["name"] for e in m["elements"]]
     markers = sorted(n for n in names if n.startswith("corr_"))
@@ -180,6 +156,7 @@ def main() -> None:
              "wall_upper_left_low", "wall_upper_left_high", "wall_upper_left_fwd", "wall_upper_left_mid", "wall_upper_left_aft",
              "wall_upper_right_low", "wall_upper_right_high", "wall_upper_right_fwd", "wall_upper_right_mid", "wall_upper_right_aft",
              "roof_cap"]
+    paint.extend(n for n in names if n.startswith("panel_bead_"))
     p.wrap("body", "paint", paint)
 
     # The body: everything but the wheels.
@@ -199,7 +176,7 @@ def main() -> None:
         return [[e["origin"][i] + v[i] for i in range(3)] for v in e["vertices"].values()]
 
     left = [u for u in wg["children"] if isinstance(u, str) and min(pt[0] for pt in verts(wp.els[u])) > 0]
-    assert len(left) == 2, [wp.els[u]["name"] for u in left]
+    assert len(left) >= 2, [wp.els[u]["name"] for u in left]
     wg["children"] = left
     wheel["elements"] = [wp.els[u] for u in left]
     wheel["groups"] = [g for g in wheel["groups"] if g["name"] == "wheels"]
@@ -217,82 +194,8 @@ def main() -> None:
     wheel["model_identifier"] = f"{VEHICLE}_wheel"
     write_json(MESH / f"{VEHICLE}_wheel.bbmodel", wheel, compact=True)
 
-    # The profile, off the cubes.
-    def box(name):
-        e = p.cube(name)
-        return e["from"], e["to"]
-
-    def centre(name, i):
-        f, t = box(name)
-        return r4((f[i] + t[i]) / 2)
-
-    def group_box(name):
-        """effects: returns the bounds (from, to) of every cube in folder name, its subfolders included"""
-        uuids = []
-        def gather(node):
-            for c in node.get("children", []):
-                if isinstance(c, str):
-                    uuids.append(c)
-                else:
-                    gather(c)
-        gather(p.find_group(m["outliner"], name))
-        cubes = [p.els[u] for u in uuids]
-        assert cubes, name
-        lo = [r4(min(c["from"][i] for c in cubes)) for i in range(3)]
-        hi = [r4(max(c["to"][i] for c in cubes)) for i in range(3)]
-        return lo, hi
-
-    coupler_f, coupler_t = box("tow_coupler")
-    nose = coupler_t[2]
-    tail = box("rear_step")[0][2]
-    roof_top = box("roof_cap")[1][1]
-    roof_w = box("roof_cap")[1][0]
-    fender_w = max(abs(box("fender_lower_1")[0][0]), abs(box("fender_lower_1")[1][0]))
-    fender_top = box("fender_top_-1")[1][1]
-    rail_y = centre(markers[0], 1)
-    rail_x = max(abs(v) for v in (box("corr_l_0.02")[0][0], box("corr_l_0.02")[1][0]))
-    zs = sorted(centre(n, 2) for n in markers if n.startswith("corr_l_"))
-    lamp_z = [zs[1], zs[len(zs) // 2], zs[-2]]
-    floor_top = box("interior_floor_mat")[1][1]
-    wall_w = max(abs(v) for e in m["elements"] if e["name"].startswith("wall_") for v in (e["from"][0], e["to"][0]))
-    front_z = box("front_panel")[1][2]
-    rear_z = box("rear_frame_left")[0][2]
-    hinge_l = p.group_origin("door_rear_left")
-    hinge_r = p.group_origin("door_rear_right")
-    assert hinge_l[0] > 0 > hinge_r[0] and hinge_l[2] < 0
-
-    profile = {
-        "mesh": f"{MODID}:{VEHICLE}",
-        "wheel_mesh": f"{MODID}:{VEHICLE}_wheel",
-        "scale": 0.0625,
-        "handedness": "right",
-        "body": {"width": round(2 * max(roof_w, wall_w) / 16, 2), "length": round((nose - tail) / 16, 2), "height": round(roof_top / 16, 2),
-                 "parts": [{"at": [0, 0, r4(front_z - wall_w)], "width": round(2 * wall_w / 16, 2), "height": round(roof_top / 16, 2)},
-                           {"at": [0, 0, r4(rear_z + wall_w)], "width": round(2 * wall_w / 16, 2), "height": round(roof_top / 16, 2)},
-                           {"at": [0, 0, cz], "width": round(2 * fender_w / 16, 2), "height": round(fender_top / 16, 2)},
-                           {"at": [0, coupler_f[1], r4((coupler_f[2] + box("tow_tongue_left")[0][2]) / 2)],
-                            "width": round(2 * coupler_t[0] / 16, 2), "height": round((coupler_t[1] - coupler_f[1]) / 16, 2)}]},
-        "seats": [],
-        "wheels": {"radius": tread, "positions": [{"forward": cz, "right": cx, "up": cy}, {"forward": cz, "right": -cx, "up": cy}]},
-        "climb": 1.0,
-        "mass": 1.2,
-        "hitch": {"front": [0, centre("tow_coupler", 1), nose]},
-        "headlights": {"at": [[x, rail_y, z] for x in (-(rail_x + 0.5), rail_x + 0.5) for z in lamp_z],
-                       "part": {"group": "lenses"}, "range": MARKER_RANGE},
-        "cargo": {"adults": 4, "young": 8,
-                  "slots": [[8.8, floor_top, 11], [-8.8, floor_top, 11], [8.8, floor_top, -14], [-8.8, floor_top, -14]]},
-        # Each door's box, shut: a crouching click anywhere on it toggles the doors.
-        "doors": [{"part": {"group": "door_rear_left"}, "hinge": hinge_l, "axis": [0, 1, 0], "open": -1.5708,
-                   "from": group_box("door_rear_left")[0], "to": group_box("door_rear_left")[1]},
-                  {"part": {"group": "door_rear_right"}, "hinge": hinge_r, "axis": [0, 1, 0], "open": 1.5708,
-                   "from": group_box("door_rear_right")[0], "to": group_box("door_rear_right")[1]}],
-        "paint": {"part": {"group": "paint"}, "default": "white"},
-        "glass": {"group": "glass"},
-    }
-    write_json(DATA / "vanillawheels/vehicle" / f"{VEHICLE}.json", profile)
-    write_json(ASSETS / "lang/en_us.json", {"vehicle.trailer.trailer": "Trailer"})
-    print(f"body {len(body['elements'])} elements; wheel at ({cx}, {cy}, {cz}) radius {tread}; "
-          f"{profile['body']['width']} wide {profile['body']['length']} long {profile['body']['height']} high; coupler {profile['hitch']['front']}")
+    assert profile_path.read_bytes() == profile_bytes
+    print(f"appearance-only: {len(body['elements'])} body elements, {len(wheel['elements'])} wheel elements; gameplay profile unchanged")
 
 
 if __name__ == "__main__":

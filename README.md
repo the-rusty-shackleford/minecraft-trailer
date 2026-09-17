@@ -36,40 +36,43 @@ the body 2.35 blocks wide, 5.18 long coupler to step and 2.79 high; climbs one b
 
 ## How it is made
 
-The trailer is nfx's Blockbench project, `devtools/art/preview/trailer.bbmodel`, as saved;
-`devtools/art/build.py` (his build, ported) turns it into what the protocol reads. The
-model is built tongue at -Z and the protocol draws +Z forward, so the whole thing is turned
-half a turn about Y, a proper rotation that keeps every face's winding and swaps the face
-UVs that must swap. The wheels are meshes, not slab stacks; the +X wheel and hub are cut
-out as the wheel mesh, recentred on the tyre, and the profile spins its own at both axle
-ends. Cubes are wrapped into the folders the profile names: `lenses`, the thirty amber
-rail cubes, drawn full-bright when lit and, with no engine, lit as point marker lamps;
-`glass`, the four side windows; `paint`, the light-grey walls, front and roof, near-white
-so white dye is the model (the rear doors are not dyeable: door meshes are drawn
-untinted). The profile is measured off the cubes: the body's width from the widest wall,
-its length coupler to step, four hit boxes tiling the shell, the axle and fenders, and the
-tongue -- solid to walkers, since a seatless vehicle's boxes are -- the coupler off the
-socket's front face, the rail lamps half a block outside the rails at the front, middle
-and rear, the cargo slots on the floor mat, the doors off their folders' pivots with
-right-hand angles about +Y (the +X leaf opens with -pi/2; Blockbench's animation
-keyframes carry the opposite sign, never copy one in). Units are sixteenths of a block.
+`devtools/art/preview/trailer.bbmodel` is an approved cosmetic derivative of nfx's
+Blockbench project. The original is preserved in `devtools/art/reference/`, with its
+attribution and checksums. A chamfered roof cap, continuous fender crowns, recessed hubs, corner and window trim, lower panel beads, and quieter metal and rubber shades.
+
+Edit the Blockbench source, then run `devtools/art/build.py --appearance-only`.
+It exports only the body and wheel meshes, supports cube and polygon faces, and refuses
+to run if the vehicle profile differs from the frozen released contract. It does not
+derive gameplay from the reshaped art or rewrite the profile, recipes or language files.
+The importer retains the proper half-turn from the source’s tongue-at-minus-Z orientation into the protocol’s plus-Z frame, wheel centring, and glass, lamp and paint selections. The rear doors retain their original hinges and finish.
+
+See D-0003 for the art direction and gameplay boundary. The cosmetic changes in 2.3.0 do not change the driving, interactions or construction described above.
 
 ## Verifying it
 
 ```
 export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 PATH="$JAVA_HOME/bin:$PATH"
-uv run --no-project python devtools/art/build.py     # split the project and write the profile
+uv run --no-project python devtools/art/build.py --appearance-only
+uv run --no-project --with pillow python -m unittest discover -s devtools/art -p "test_appearance.py"
 ./gradlew check                                       # gametests and the photo booth (needs a display)
 ```
 
-Four gametests on a headless server: the profile is a trailer as described; the
+Five gametests on a headless server: the profile is a trailer as described; the
 Trailblazer (from Maven Local: `./gradlew publishToMavenLocal` in its repo) catches the
 tongue, wherever the two profiles put the ball and the coupler, and tows it straight and
-round a turn; four cows board and a fifth is refused, a calf at a half; the chassis crafts. The booth photographs the trailer's side and then
+round a turn; four cows board and a fifth is refused, a calf at a half; crouch-clicking either door works across its leaf while the roof does
+not toggle it; the chassis crafts. The booth photographs the trailer's side and then
 hitched behind a Trailblazer with its doors open and two cows aboard; its
-`booth: PASS/FAIL` lines are the assertion. Headless: `Xephyr :7 -screen 1280x720 -ac -br
--noreset`, then `DISPLAY=:7 __GLX_VENDOR_LIBRARY_NAME=mesa LIBGL_ALWAYS_SOFTWARE=1
-GALLIUM_DRIVER=llvmpipe ./gradlew check`.
+`booth: PASS/FAIL` lines are the assertion. For server-only checks, run
+`./gradlew --no-watch-fs check -PskipBooth`. For the shader booth, use a native GPU display
+with Iris, Sodium and Complementary in `run/booth/`. Verify host clients and Xephyr first,
+reuse the existing display, and run only one rendering client. The booth mutes itself and exits.
+
+The cosmetic booth also checks dye against the stock wall finish, captures the coupler joint, and logs five-second fixed-view frame samples (`booth-performance`). Shader colour checks use separate body and marker regions with negative controls. The towing fixture uses the current local Trailblazer 1.7.0 artifact.
+
+## Release 2.3.0
+
+The approved cosmetic derivative ships with Vanilla Wheels 1.7.0 and Luminance 1.1.0. Vehicle gameplay data and original supplied-model references are preserved. Update every client and the server together for network protocol 4.
 
 ## Licence
 
