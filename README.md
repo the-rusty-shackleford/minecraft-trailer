@@ -68,7 +68,7 @@ hitched behind a Trailblazer with its doors open and two cows aboard; its
 with Iris, Sodium and Complementary in `run/booth/`. Verify host clients and Xephyr first,
 reuse the existing display, and run only one rendering client. The booth mutes itself and exits.
 
-The cosmetic booth also checks dye against the stock wall finish, captures the coupler joint, and logs five-second fixed-view frame samples (`booth-performance`). Shader colour checks use separate body and marker regions with negative controls. The towing fixture uses the current local Trailblazer 1.7.0 artifact.
+The cosmetic booth also checks dye against the stock wall finish, captures the coupler joint, and logs five-second fixed-view frame samples (`booth-performance`). Shader colour checks use separate body and marker regions with negative controls. The towing fixture uses the current local Trailblazer 1.8.0 artifact.
 
 ## Release 2.3.0
 
@@ -84,7 +84,7 @@ Version 2.3.1 bundles Vanilla Wheels 1.7.2, which requires Metals and Materials
 as a separately installed mod on both client and server. Mod Hub includes it
 in our pack. Vehicle profiles, models, recipes and handling are unchanged.
 
-## Repairs and recovery (2.4.0, local review)
+## Repairs and recovery (2.4.0)
 
 Broken vehicles become packed items at zero condition, preserving cargo, paint,
 fuel and radio discs. Wrench pickup also preserves cargo and wear. Place a damaged
@@ -102,4 +102,4 @@ cannot duplicate an item someone already collected. A trailer detached by breaki
 or wrenching is a separate vehicle.
 
 Requires matching Vanilla Wheels 1.8.0 / protocol 5 on client and server.
-This candidate has not been published or deployed.
+Update the full pack on both sides before connecting.
