@@ -197,5 +197,11 @@
   },
   "glass": {
     "group": "glass"
+  },
+  "repair": {
+    "ingredient": {
+      "tag": "c:ingots/steel"
+    },
+    "full_cost": 12
   }
 }

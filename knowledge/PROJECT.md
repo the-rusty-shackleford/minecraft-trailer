@@ -98,3 +98,11 @@ profiles are unchanged. Unit/server checks, recursive jar/payload audits and com
 
 Validation: see Metals and Materials `devtools/verification/separate-dependency.md`;
 all six packaging builds and the complete-pack client/server check passed.
+
+## Vehicle recovery — 2026-09-18, local review
+
+Version 2.4.0 implements [D-0004](decisions/D-0004.md) with Vanilla Wheels
+1.8.0 / protocol 5. Full repairs cost 12 steel; partial repairs are proportional.
+The shared protocol preserves cargo, damage, fuel and paint when packing vehicles,
+and provides paired-key recall including a currently hitched trailer. This remains
+unreleased, alongside the earlier separate-materials packaging change.
