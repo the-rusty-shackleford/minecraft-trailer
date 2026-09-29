@@ -18,13 +18,17 @@ trailers already in a world and chassis already crafted simply wear the new body
 - **Chassis**: six steel blocks over three iron bars, in a `B I B / B B B / I I I` grid.
 - **Build**: the chassis and two wheels in a Mechanic Lift, and Build. No engine. Paint it
   there with a dye; it is white to begin with.
-- **Pick up**: crouch and right-click with the wrench.
+- **Pick up**: right-click it with a crowbar, crouching or not. It has its own, in its toolbox:
+  crouch and right-click the body empty-handed to open it (Vanilla Wheels 1.10.0, its D-0020 and
+  D-0023).
 
 ## Using it
 
 Hold the trailer and right-click a vehicle with a rear hitch: it is put down coupler on the
 ball, hitched. Or back a vehicle's rear hitch to within half a block of the tongue while
-moving and it catches; crouch and right-click the tongue to let go. Crouch and right-click
+moving and it catches; crouch and right-click the tongue to let go: it rolls back clear of
+the ball, and the vehicle does not catch it again until the two have parted (Vanilla Wheels
+D-0022). Crouch and right-click
 a rear door, empty-handed, to open or shut both; right-click the trailer with a lead and
 every animal on your leads within ten blocks boards while there is room (an adult a whole
 share, a young one a half); crouch and right-click the trailer holding a lead with the
@@ -87,7 +91,7 @@ in our pack. Vehicle profiles, models, recipes and handling are unchanged.
 ## Repairs and recovery (2.4.0)
 
 Broken vehicles become packed items at zero condition, preserving cargo, paint,
-fuel and radio discs. Wrench pickup also preserves cargo and wear. Place a damaged
+fuel and radio discs. Crowbar pickup also preserves cargo and wear; a player's blow does not wear it. Place a damaged
 vehicle on the Mechanic Lift to reveal Repair; a full repair costs **12 steel
 ingots**, with cheaper proportional repairs rounded up. Creative needs no materials.
 
@@ -99,7 +103,7 @@ returns a wreck. Unload passengers and animals, close vehicle chests, and leave 
 in inventory. One active pairing per player; a replacement fob invalidates the old.
 The fob can recover a paired physical wreck, including from an unloaded chunk, but
 cannot duplicate an item someone already collected. A trailer detached by breaking
-or wrenching is a separate vehicle.
+or prying loose is a separate vehicle.
 
 Requires matching Vanilla Wheels 1.8.0 / protocol 5 on client and server.
 Update the full pack on both sides before connecting.

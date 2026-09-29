@@ -206,8 +206,10 @@ public final class TrailerGameTests {
         helper.assertTrue(trailer.doorsOpen(), "and opens the doors");
         // The roof over the doors, a block and a half up: not a door.
         Vec3 onRoof = trailer.rotate(p.localBlocks(new Vec(0, p.body().height() / p.scale() + 8, from.z())));
-        helper.assertTrue(!trailer.interactAt(player, onRoof, InteractionHand.MAIN_HAND).consumesAction(), "a click over the roof is not a door's");
-        helper.assertTrue(trailer.doorsOpen(), "the doors stay open");
+        // Since Vanilla Wheels 1.10.0 (its D-0023) a crouching empty hand elsewhere on the body opens
+        // the toolbox, so the click is taken: what matters is that it is not a door's.
+        trailer.interactAt(player, onRoof, InteractionHand.MAIN_HAND);
+        helper.assertTrue(trailer.doorsOpen(), "a click over the roof is not a door's: the doors stay open");
         // The door swung open stands off the hull: the same corner, turned about the hinge, still toggles.
         Vec swung = new com.chunkworks.vanillawheels.domain.Rotation(left.hinge(), left.axis(), left.open()).mirrored(p.toLocal()).apply(p.toLocal().apply(corner));
         Vec3 onSwung = trailer.rotate(swung.times(p.scale()));
