@@ -1,0 +1,9 @@
+{
+  "shots": [
+    {"from": "run/booth/screenshots/booth-hitched.png", "to": "img/hitched.webp"},
+    {"from": "run/booth/screenshots/booth-side.png", "to": "img/side.webp"},
+    {"from": "run/booth/screenshots/booth-hitch-joint.png", "to": "img/hitch.webp"},
+    {"from": "run/booth/screenshots/booth-hitched-night-on.png", "to": "img/lamps.webp"},
+    {"from": "run/booth/screenshots/booth-side-red.png", "to": "img/painted.webp"}
+  ]
+}
