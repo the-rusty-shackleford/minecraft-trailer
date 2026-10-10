@@ -64,6 +64,7 @@
   },
   "climb": 1.0,
   "mass": 1.2,
+  "durability": 8.0,
   "hitch": {
     "front": [
       0,

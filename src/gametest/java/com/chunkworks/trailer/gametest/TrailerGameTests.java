@@ -109,6 +109,7 @@ public final class TrailerGameTests {
         helper.assertTrue(p.isPresent(), "trailer:trailer is in the vehicle registry");
         VehicleProfile t = p.get();
         helper.assertTrue(t.engine().isEmpty(), "no engine");
+        helper.assertValueEqual(t.durability(), 8.0, "a truck's durability (Vanilla Wheels' D-0034)");
         helper.assertTrue(t.seats().isEmpty(), "no seats");
         helper.assertTrue(t.hitch().front().isPresent(), "a tongue");
         helper.assertTrue(t.hitch().rear().isEmpty(), "no rear hitch");

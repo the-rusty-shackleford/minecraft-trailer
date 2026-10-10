@@ -40,11 +40,13 @@ var prepareBooth = tasks.register("prepareBooth") {
         new File(booth, 'saves').deleteDir()
         // A fresh game directory opens on the accessibility onboarding screen,
         // which the booth would wait behind forever; a seeded options file
-        // takes the client straight to the title screen.
+        // takes the client straight to the title screen. Vsync off: on the GPU the
+        // booth's window, under others on the desktop, is held to a frame a second
+        // with it on, and the frame samples need sixty (2026-10-10).
         def options = new File(booth, 'options.txt')
         if (!options.exists()) {
             booth.mkdirs()
-            options.text = "onboardAccessibility:false\nnarrator:0\n"
+            options.text = "onboardAccessibility:false\nnarrator:0\nenableVsync:false\ninactivityFpsLimit:\"minimized\"\n"
         }
     }
 }
@@ -110,8 +112,8 @@ dependencies {
     // separately through the protocol; no materials jar is embedded.
     jarJar(implementation("com.chunkworks.vanillawheels:vanillawheels")) {
         version {
-            strictly "[1.8,2.0)"
-            prefer "1.8.0"
+            strictly "[1.14,2.0)"
+            prefer "1.14.0"
         }
     }
 
