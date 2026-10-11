@@ -15,7 +15,10 @@ Blockbench meshes, a recipe and a lang file, with the protocol nested inside. Th
 an approved derivative of nfx's Blockbench project `devtools/art/preview/trailer.bbmodel`; the meshes are
 exported from it by `devtools/art/build.py`, his build ported (D-0003).
 
-## 2.5.0 — built and gated 2026-10-10, unreleased (durability 8)
+## 2.5.0 — released 2026-10-11 in pack 1.82.0 (durability 8)
+
+Released on Rusty's go ("Release the 2026-10-10 batch and Survivalist Armor 0.2.0. This is my go."), tag `v2.5.0` at `9103da4`, the release gate (2026-10-11, `clean build --no-build-cache`) green again on that commit; sha1 `10d62c9a` on GitHub and on the server (the server repo's `knowledge/releases/pack-1.82.0.md`). Not yet seen in play on the box.
+
 
 Its profile names `durability` 8 (Vanilla Wheels 1.14.0's D-0034), as the trucks. It nests Vanilla
 Wheels 1.14.0 (it had nested 1.8.0). Gate: the release gate (2026-10-10, `clean build --no-build-cache`) green with 5 gametests and the booth's 11 checks, on the 4070.
